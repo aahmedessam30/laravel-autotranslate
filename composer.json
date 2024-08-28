@@ -1,0 +1,30 @@
+{
+    "name": "ahmedessam/laravel-autotranslate",
+    "description": "Laravel AutoTranslate is a package that automates the process of collecting translation keys throughout your Laravel project and organizing them into the appropriate translation files. This tool simplifies multilingual development by ensuring that all translation keys are efficiently managed and up-to-date.",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^11.0"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Ahmedessam\\LaravelAutotranslate\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Ahmedessam\\LaravelAutotranslate\\LaravelAutotranslateServiceProvider"
+            ]
+        }
+    },
+    "authors": [
+        {
+            "name": "Ahmed Essam",
+            "email": "aahmedessam30@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
