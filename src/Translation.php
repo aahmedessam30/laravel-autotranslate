@@ -35,9 +35,7 @@ class Translation
 
             foreach ($translations as $translation) {
 
-                $segments = explode('.', $translation);
-
-                $segments = self::handleTranslationSegments($segments);
+                $segments = self::handleTranslationSegments($translation);
                 $file     = $segments['file'];
                 $key      = $segments['key'];
 
@@ -116,9 +114,15 @@ class Translation
         StubGenerator::saveStub($file, $stub);
     }
 
-    private static function handleTranslationSegments($segments): array
+    private static function handleTranslationSegments($translation): array
     {
-        if (count($segments) < 2) {
+        if (!str_contains($translation, '.')) {
+            return ['file' => 'messages', 'key' => $translation];
+        }
+
+        $segments = explode('.', $translation);
+
+        if (count($segments) < 2 || in_array($segments[1], ['', ' '])) {
             $file = 'messages';
             $key  = $segments[0];
         } else {

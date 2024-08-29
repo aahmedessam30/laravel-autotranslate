@@ -21,7 +21,7 @@ class Scanner
             return config('autotranslate.patterns');
         }
 
-        return array_merge(self::$patterns, config('autotranslate.patterns'));
+        return array_merge(self::$patterns, config('autotranslate.patterns', []));
     }
 
     public static function scan($path = null): array
