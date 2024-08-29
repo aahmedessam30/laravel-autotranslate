@@ -28,6 +28,29 @@ php artisan sync:translations
 
 This command will scan your entire Laravel project for translation keys and ensure they are properly placed in the corresponding translation files.
 
+# Configuration
+The AutoTranslate package provides a configuration file that allows you to customize the behavior of the translation synchronization process. You can publish the configuration file using the following command:
+
+```bash
+php artisan vendor:publish --tag=autotranslate-config
+```
+
+This will create a config file named `autotranslate.php` in your `config` directory. The configuration file contains the following options:
+
+- **reset_patterns**:  If set to true, only your extra patterns will be used. If set to false, both the default and extra patterns will be used.
+- **patterns**:  An array of extra patterns to search for translation keys in PHP files. You can add your own patterns to capture translation keys in different formats.
+
+# Features
+
+## Translation Key Extraction
+
+The AutoTranslate package scans your Laravel project for translation keys and extracts them from various sources, including:
+
+- Blade templates
+- PHP files
+
+The package identifies translation keys based on the Laravel `__()`, `trans()` helper functions and Blade `@lang` directive.
+
 # Requirements
 - PHP 8.2 or higher
 - Laravel 10.0 or higher

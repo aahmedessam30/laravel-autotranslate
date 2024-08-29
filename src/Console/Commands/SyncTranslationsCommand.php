@@ -31,6 +31,11 @@ class SyncTranslationsCommand extends Command
 
             $this->components->info('Syncing translations...');
 
+            if (!file_exists(resource_path("lang")) || !file_exists(lang_path())) {
+                $this->components->warn('The lang directory does not exist, we will create it for you.');
+                $this->call('lang:publish');
+            }
+
             // use AutoTranslate::setPatterns()->sync($lang); to set extra patterns
 
             AutoTranslate::sync($lang);

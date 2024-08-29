@@ -17,11 +17,11 @@ class Scanner
 
     private static function getPatterns()
     {
-        if (config('auto-translate.reset_patterns')) {
-            return config('auto-translate.patterns');
+        if (config('autotranslate.reset_patterns')) {
+            return config('autotranslate.patterns');
         }
 
-        return array_merge(self::$patterns, config('auto-translate.patterns'));
+        return array_merge(self::$patterns, config('autotranslate.patterns'));
     }
 
     public static function scan($path = null): array

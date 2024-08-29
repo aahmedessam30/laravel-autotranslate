@@ -24,14 +24,14 @@ class LaravelAutotranslateServiceProvider extends ServiceProvider
 
         $this->publishes([
             __DIR__.'/Console/Commands/SyncTranslationsCommand.php' => app_path('Console/Commands/SyncTranslationsCommand.php'),
-        ], 'command');
+        ], 'autotranslate-command');
 
         $this->publishes([
             __DIR__ . '/stubs/translation.stub' => base_path('stubs/translation.stub'),
-        ], 'stubs');
+        ], 'autotranslate-stub');
 
         $this->publishes([
-            __DIR__ . '/config/auto-translate.php' => config_path('auto-translate.php'),
-        ], 'config');
+            __DIR__ . '/config/autotranslate.php' => config_path('autotranslate.php'),
+        ], 'autotranslate-config');
     }
 }
