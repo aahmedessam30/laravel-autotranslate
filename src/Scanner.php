@@ -4,9 +4,10 @@ namespace Ahmedessam\LaravelAutotranslate;
 
 class Scanner
 {
-    private static array $translations = [];
+    private static array $translations        = [];
+    private static array $allowedExtensions   = ['php', 'blade.php'];
     private static array $includedDirectories = ['app', 'bootstrap', 'config', 'database', 'public', 'resources', 'routes', 'storage', 'tests'];
-    private static array $patterns = [
+    private static array $patterns            = [
         '/__\(\'(.*?)\'\)/',
         '/__\(\"(.*?)\"\)/',
         '/trans\(\'(.*?)\'\)/',
@@ -15,54 +16,57 @@ class Scanner
         '/@lang\(\"(.*?)\"\)/',
     ];
 
-    private static function getPatterns()
+    private static function getPatterns(): array
     {
-        if (config('autotranslate.reset_patterns')) {
-            return config('autotranslate.patterns');
-        }
-
-        return array_merge(self::$patterns, config('autotranslate.patterns', []));
+        return config('autotranslate.reset_patterns')
+            ? config('autotranslate.patterns', [])
+            : array_merge(self::$patterns, config('autotranslate.patterns', []));
     }
 
-    public static function scan($path = null): array
+    public static function setPatterns(array $patterns): static
+    {
+        self::$patterns = array_merge(self::$patterns, $patterns);
+        return new static();
+    }
+
+    public static function getDirectories(): array
+    {
+        return config('autotranslate.directories', self::$includedDirectories);
+    }
+
+    public static function scan(string $path = null): array
     {
         $path = $path ?? base_path();
 
-        $files = scandir($path);
+        $directories = array_filter(scandir($path), function ($file) use ($path) {
+            return is_dir("$path/$file") && !in_array($file, ['.', '..']) && in_array($file, self::getDirectories());
+        });
 
-        $files = array_filter($files, fn($file) => !in_array($file, ['.', '..', ...array_diff($files, self::$includedDirectories)], true));
-
-        foreach ($files as $file) {
-            $file = "$path/$file";
-
-            if (is_dir($file)) {
-                self::getFiles($file);
-            } else {
-                self::$translations = [...self::$translations, ...self::getTranslations($file)];
-            }
+        foreach ($directories as $dir) {
+            self::scanDirectory("$path/$dir");
         }
 
         return array_unique(self::$translations);
     }
 
-    private static function getFiles($dir): void
+    private static function scanDirectory(string $dir): void
     {
-        $files = array_diff(scandir($dir), ['.', '..']);
+        $files = array_filter(scandir($dir), fn($file) => !in_array($file, ['.', '..']));
 
         foreach ($files as $file) {
-            $file = "$dir/$file";
+            $filePath = "$dir/$file";
 
-            if (pathinfo($file, PATHINFO_EXTENSION) !== 'php') {
-                continue;
-            }
-
-            if (is_dir($file)) {
-                self::getFiles($file);
-            } else {
-                self::$translations = [...self::$translations, ...self::getTranslations($file)];
+            if (is_dir($filePath)) {
+                self::scanDirectory($filePath);
+            } elseif (self::isAllowedFile($filePath)) {
+                self::$translations = [...self::$translations, ...self::getTranslations($filePath)];
             }
         }
+    }
 
+    private static function isAllowedFile(string $file): bool
+    {
+        return collect(self::$allowedExtensions)->contains(fn($ext) => str_ends_with($file, $ext));
     }
 
     private static function getTranslations($file): array
@@ -78,11 +82,5 @@ class Scanner
         }
 
         return array_filter(array_unique($matches));
-    }
-
-    public static function setPatterns(array $patterns): static
-    {
-        self::$patterns = array_merge(self::$patterns, $patterns);
-        return new static();
     }
 }

@@ -6,20 +6,6 @@ use Illuminate\Support\Facades\Log;
 
 class Translation
 {
-    private static array $patterns = [];
-
-    /**
-     * Set the patterns to be scanned.
-     *
-     * @param array $patterns
-     * @return static
-     */
-    public static function setPatterns(array $patterns): static
-    {
-        self::$patterns = $patterns;
-        return new static;
-    }
-
     /**
      * Sync the translations.
      *
@@ -29,7 +15,7 @@ class Translation
     public static function sync(string $lang = null): string
     {
         try {
-            $translations = Scanner::setPatterns(self::$patterns)->scan();
+            $translations = Scanner::scan();
 
             sort($translations);
 
@@ -38,6 +24,8 @@ class Translation
                 $segments = self::handleTranslationSegments($translation);
                 $file     = $segments['file'];
                 $key      = $segments['key'];
+                $key      = str_replace("'", '', $key);
+                $key      = str_replace('"', '', $key);
 
                 foreach (self::getLanguages($lang) as $language) {
                     $file_path = self::getLangPath() . "/$language/$file.php";
@@ -82,7 +70,21 @@ class Translation
             throw new \RuntimeException('Language path not found, please run php artisan lang:publish first.');
         }
 
-        return file_exists(resource_path('lang')) ? resource_path('lang') : lang_path();
+        $directory = config('autotranslate.default_directory', 'lang');
+
+        if ($directory === 'lang') {
+            return lang_path();
+        }
+
+        if ($directory === 'resource/lang') {
+            return resource_path('lang');
+        }
+
+        if (!file_exists(base_path($directory)) && !mkdir($concurrentDirectory = base_path($directory), 0755, true) && !is_dir($concurrentDirectory)) {
+            throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+        }
+
+        return base_path($directory);
     }
 
     /**
