@@ -7,9 +7,22 @@ class Scanner
     private static array $translations = [];
     private static array $includedDirectories = ['app', 'bootstrap', 'config', 'database', 'public', 'resources', 'routes', 'storage', 'tests'];
     private static array $patterns = [
-        '/(?:__|trans|handleMessageTranslation|response\(\)->(?:success|error|unauthorized|notFound))\(\s*(?:__\s*\(\s*)?["\'](.*?)["\'](?:\s*\)\s*)?\)/',
-        '/Warning::.*?\(\'(.*?)\'\)/'
+        '/__\(\'(.*?)\'\)/',
+        '/__\(\"(.*?)\"\)/',
+        '/trans\(\'(.*?)\'\)/',
+        '/trans\(\"(.*?)\"\)/',
+        '@lang\(\'(.*?)\'\)',
+        '@lang\(\"(.*?)\"\)',
     ];
+
+    private static function getPatterns()
+    {
+        if (config('auto-translate.reset_patterns')) {
+            return config('auto-translate.patterns');
+        }
+
+        return array_merge(self::$patterns, config('auto-translate.patterns'));
+    }
 
     public static function scan($path = null): array
     {
@@ -63,7 +76,7 @@ class Scanner
         return array_filter(array_unique($matches));
     }
 
-    public static function setPatterns(array $patterns):static
+    public static function setPatterns(array $patterns): static
     {
         self::$patterns = array_merge(self::$patterns, $patterns);
         return new static();

@@ -112,7 +112,7 @@ class Translation
      */
     private static function generateTranslationFile($file): void
     {
-        $stub = StubGenerator::getStub('translation', __DIR__ . '/Stubs');
+        $stub = StubGenerator::getStub('translation', __DIR__ . '/stubs');
         StubGenerator::saveStub($file, $stub);
     }
 
