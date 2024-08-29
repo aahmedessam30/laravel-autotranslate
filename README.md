@@ -40,6 +40,45 @@ This will create a config file named `autotranslate.php` in your `config` direct
 - **reset_patterns**:  If set to true, only your extra patterns will be used. If set to false, both the default and extra patterns will be used.
 - **patterns**:  An array of extra patterns to search for translation keys in PHP files. You can add your own patterns to capture translation keys in different formats.
 
+# Custom Patterns
+You can define custom patterns to search for translation keys in PHP files. To add a custom pattern, simply add it to the `patterns` array in the `autotranslate.php` configuration file. Each pattern should be a regular expression that captures the translation key.
+
+Here is an example of adding a custom pattern to capture translation keys in the format `trans('key')`:
+
+```php
+'patterns' => [
+    '/trans\([\'\"](.*?)[\'\"]\)/',
+],
+```
+
+This pattern will capture translation keys in the format `trans('key')` and extract the key value.
+
+# Custom Directories
+
+By default, the AutoTranslate package scans the default Laravel directories for translation keys. If you have additional directories that contain translation keys, you can specify them in the `directories` array in the `autotranslate.php` configuration file.
+
+Here is an example of adding a custom directory to search for translation keys:
+
+```php
+'directories' => [
+    'custom_directory',
+],
+```
+
+This will include the `custom_directory` in the search for translation keys and remove the default Laravel directories.
+
+# Directories to save translations
+
+By default, the AutoTranslate package saves the translation keys in the `resources/lang` directory. If you want to save the translation keys in a different directory, you can specify the directory in the `default_directory` option in the `autotranslate.php` configuration file.
+
+Here is an example of saving the translation keys in a custom directory named `custom_lang`:
+
+```php
+'default_directory' => 'custom_lang',
+```
+
+This will save the translation keys in the `custom_lang` directory instead of the default `lang` directory.
+
 # Features
 
 ## Translation Key Extraction
