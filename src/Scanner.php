@@ -11,8 +11,8 @@ class Scanner
         '/__\(\"(.*?)\"\)/',
         '/trans\(\'(.*?)\'\)/',
         '/trans\(\"(.*?)\"\)/',
-        '@lang\(\'(.*?)\'\)',
-        '@lang\(\"(.*?)\"\)',
+        '/@lang\(\'(.*?)\'\)/',
+        '/@lang\(\"(.*?)\"\)/',
     ];
 
     private static function getPatterns()
@@ -67,7 +67,7 @@ class Scanner
 
         $matches = [];
 
-        foreach (self::$patterns as $pattern) {
+        foreach (self::getPatterns() as $pattern) {
             if (preg_match_all($pattern, $content, $patternMatches)) {
                 $matches = [...$matches, ...$patternMatches[1]];
             }
