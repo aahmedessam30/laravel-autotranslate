@@ -52,6 +52,10 @@ class Scanner
         foreach ($files as $file) {
             $file = "$dir/$file";
 
+            if (pathinfo($file, PATHINFO_EXTENSION) !== 'php') {
+                continue;
+            }
+
             if (is_dir($file)) {
                 self::getFiles($file);
             } else {
