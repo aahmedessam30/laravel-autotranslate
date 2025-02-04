@@ -122,7 +122,7 @@ class Translation
 
     private static function getLangPath(): string
     {
-        return lang_path();
+        return function_exists('lang_path') ? lang_path() : base_path('resources/lang');
     }
 
     private static function getLanguages($lang = null): array
