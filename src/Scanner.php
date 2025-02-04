@@ -8,12 +8,12 @@ class Scanner
     private static array $allowedExtensions   = ['php', 'blade.php'];
     private static array $includedDirectories = ['app', 'bootstrap', 'config', 'database', 'public', 'resources', 'routes', 'storage', 'tests'];
     private static array $patterns            = [
-        '/__\(\'(.*?)\'\)/',
-        '/__\(\"(.*?)\"\)/',
-        '/trans\(\'(.*?)\'\)/',
-        '/trans\(\"(.*?)\"\)/',
-        '/@lang\(\'(.*?)\'\)/',
-        '/@lang\(\"(.*?)\"\)/',
+        '/__\(\'(.*?)\'(?:, \[(.*?)\])?\)/', // Matches __('messages.key', ['model' => __('models.value')])
+        '/__\(\"(.*?)\"(?:, \[(.*?)\])?\)/',
+        '/trans\(\'(.*?)\'(?:, \[(.*?)\])?\)/',
+        '/trans\(\"(.*?)\"(?:, \[(.*?)\])?\)/',
+        '/@lang\(\'(.*?)\'(?:, \[(.*?)\])?\)/',
+        '/@lang\(\"(.*?)\"(?:, \[(.*?)\])?\)/',
     ];
 
     private static function getPatterns(): array
@@ -46,7 +46,7 @@ class Scanner
             self::scanDirectory("$path/$dir");
         }
 
-        return array_unique(self::$translations);
+        return self::$translations;
     }
 
     private static function scanDirectory(string $dir): void
@@ -59,7 +59,7 @@ class Scanner
             if (is_dir($filePath)) {
                 self::scanDirectory($filePath);
             } elseif (self::isAllowedFile($filePath)) {
-                self::$translations = [...self::$translations, ...self::getTranslations($filePath)];
+                self::processFile($filePath);
             }
         }
     }
@@ -69,18 +69,55 @@ class Scanner
         return collect(self::$allowedExtensions)->contains(fn($ext) => str_ends_with($file, $ext));
     }
 
-    private static function getTranslations($file): array
+    private static function processFile(string $file): void
     {
         $content = file_get_contents($file);
 
-        $matches = [];
-
         foreach (self::getPatterns() as $pattern) {
-            if (preg_match_all($pattern, $content, $patternMatches)) {
-                $matches = [...$matches, ...$patternMatches[1]];
+            if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $key = trim($match[1]);  // Main translation key
+
+                    if (!empty($match[2])) {
+                        // Parse attributes from `['model' => __('models.package')]`
+                        self::extractAttributes($key, $match[2]);
+                    } else {
+                        // Only add the translation key if it doesn't already exist
+                        if (!isset(self::$translations[$key])) {
+                            self::$translations[$key] = [];
+                        }
+                    }
+                }
             }
         }
+    }
 
-        return array_filter(array_unique($matches));
+    /**
+     * Extracts attributes like ['model' => __('models.package')]
+     */
+    private static function extractAttributes(string $key, string $attributesString): void
+    {
+        $attributes = [];
+
+        preg_match_all("/'(.+?)' => __\('(.+?)'\)/", $attributesString, $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $match) {
+            if (isset($match[1], $match[2])) {
+                $attributeKey = trim($match[1]);  // Example: model
+                $attributePath = trim($match[2]); // Example: models.package
+
+                $attributeSegments = explode('.', $attributePath);
+                $file = array_shift($attributeSegments);
+
+                if (!isset(self::$translations[$key])) {
+                    self::$translations[$key] = [];
+                }
+
+                self::$translations[$key][$attributeKey] = [
+                    'file' => $file,
+                    'keys' => $attributeSegments,
+                ];
+            }
+        }
     }
 }

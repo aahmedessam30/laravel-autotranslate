@@ -17,38 +17,40 @@ class Translation
         try {
             $translations = Scanner::scan();
 
-            sort($translations);
+            foreach ($translations as $translation => $attributes) {
+                if (!is_string($translation)) {
+                    continue; // Skip invalid translations
+                }
 
-            foreach ($translations as $translation) {
+                [$translationKey, $extractedAttributes] = self::extractAttributes($translation);
+                $attributes = array_merge($attributes, $extractedAttributes);
 
-                $segments = self::handleTranslationSegments($translation);
-                $file     = $segments['file'];
-                $key      = $segments['key'];
-                $key      = str_replace("'", '', $key);
-                $key      = str_replace('"', '', $key);
+                if (!$translationKey) {
+                    continue; // Skip invalid translations
+                }
 
-                foreach (self::getLanguages($lang) as $language) {
-                    $file_path = self::getLangPath() . "/$language/$file.php";
+                $segments = self::handleTranslationSegments($translationKey);
+                $file = $segments['file'];
+                $keys = $segments['keys'];
 
-                    if (!file_exists($file_path)) {
-                        self::generateTranslationFile($file_path);
+                $files = array_filter(self::getLanguages($lang), function ($file) {
+                    return !(str_contains($file, '.json') || str_contains($file, 'vendor'));
+                });
+
+                foreach ($files as $language) {
+                    $filePath = self::getLangPath() . "/$language/$file.php";
+
+                    if (!file_exists($filePath)) {
+                        self::generateTranslationFile($filePath);
                     }
 
-                    $content = file_get_contents($file_path);
+                    $translationsArray = file_exists($filePath) ? include $filePath : [];
+                    $translationsArray = self::addNestedKeys($translationsArray, $keys, array_keys($attributes));
 
-                    if (str_contains($content, $key)) {
-                        continue;
-                    }
+                    $formattedContent = self::exportArray($translationsArray);
+                    file_put_contents($filePath, $formattedContent);
 
-                    if (in_array($key, ["'", '"'])) {
-                        continue;
-                    }
-
-                    $value = str($key)->replace('_', ' ')->replace('-', ' ')->title()->value();
-
-                    $content = str_replace('];', "\t'$key' => '$value',\n];", $content);
-
-                    file_put_contents($file_path, $content);
+                    self::handleAttributes($attributes, $language);
                 }
             }
 
@@ -60,82 +62,148 @@ class Translation
     }
 
     /**
-     * Get the language path.
+     * Extracts attributes from translation strings
      *
-     * @return string
+     * @param string $translation
+     * @return array [translation key, attributes]
      */
-    private static function getLangPath(): string
+    private static function extractAttributes(string $translation): array
     {
-        if (!file_exists(resource_path('lang')) && !file_exists(lang_path())) {
-            throw new \RuntimeException('Language path not found, please run php artisan lang:publish first.');
+        $translation = rtrim($translation, " '");
+
+        // Match translation key and attributes (handling possible syntax variations)
+        preg_match("/(.+?)', \[(.+?)\]/", $translation, $matches);
+
+        if (isset($matches[1], $matches[2])) {
+            $translationKey = trim($matches[1]);
+            $attributes = self::parseAttributes($matches[2]);
+            return [$translationKey, $attributes];
         }
 
-        $directory = config('autotranslate.default_directory', 'lang');
-
-        if ($directory === 'lang') {
-            return lang_path();
-        }
-
-        if ($directory === 'resource/lang') {
-            return resource_path('lang');
-        }
-
-        if (!file_exists(base_path($directory)) && !mkdir($concurrentDirectory = base_path($directory), 0755, true) && !is_dir($concurrentDirectory)) {
-            throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
-        }
-
-        return base_path($directory);
+        return [$translation, []];
     }
 
     /**
-     * Get the languages.
+     * Parses attributes from a given attribute string
      *
-     * @param string|null $lang
+     * @param string $attributesString
      * @return array
      */
-    private static function getLanguages($lang = null): array
+    private static function parseAttributes(string $attributesString): array
     {
-        $languages = array_diff(scandir(self::getLangPath()), ['.', '..']);
+        $attributes = [];
+        preg_match_all("/'(.+?)' => __\('(.+?)'\)/", $attributesString, $matches, PREG_SET_ORDER);
 
-        if ($lang) {
-            return [$lang];
+        foreach ($matches as $match) {
+            if (isset($match[1], $match[2])) {
+                $attributeKey = trim($match[1]);
+                $attributePath = trim($match[2]);
+
+                if (!self::isValidKey($attributePath)) {
+                    continue;
+                }
+
+                $attributeSegments = explode('.', $attributePath);
+                $file = array_shift($attributeSegments);
+                $attributes[$attributeKey] = ['file' => $file, 'keys' => $attributeSegments];
+            }
         }
 
-        return $languages;
+        return $attributes;
     }
 
     /**
-     * Generate the translation file.
-     *
-     * @param string $file
-     * @return void
+     * Validates translation keys and ignores dynamic placeholders
      */
-    private static function generateTranslationFile($file): void
+    private static function isValidKey(string $key): bool
     {
-        $stub = StubGenerator::getStub('translation', __DIR__ . '/stubs');
-        StubGenerator::saveStub($file, $stub);
+        return !preg_match('/{\$.*?}/', $key); // Ignore dynamic variables
+    }
+
+    private static function getLangPath(): string
+    {
+        return lang_path();
+    }
+
+    private static function getLanguages($lang = null): array
+    {
+        return $lang ? [$lang] : array_diff(scandir(self::getLangPath()), ['.', '..']);
+    }
+
+    private static function generateTranslationFile($filePath): void
+    {
+        file_put_contents($filePath, "<?php\n\nreturn [];\n");
     }
 
     private static function handleTranslationSegments($translation): array
     {
-        if (!str_contains($translation, '.')) {
-            return ['file' => 'messages', 'key' => $translation];
-        }
-
         $segments = explode('.', $translation);
+        return ['file' => array_shift($segments), 'keys' => $segments];
+    }
 
-        if (count($segments) < 2 || in_array($segments[1], ['', ' '])) {
-            $file = 'messages';
-            $key  = $segments[0];
-        } else {
-            $file = $segments[0];
-            $key  = $segments[1];
+    private static function addNestedKeys(array $translations, array $keys, array $placeholders = []): array
+    {
+        $current = &$translations;
+        foreach ($keys as $index => $key) {
+            if (isset($current[$key]) && !is_array($current[$key])) {
+                $current[$key] = ['value' => $current[$key]];
+            }
+
+            if ($index === array_key_last($keys)) {
+                $translationString = ucfirst(str_replace('_', ' ', $key));
+
+                if ($placeholders) {
+                    $translationString .= ' ' . implode(' ', array_map(fn($p) => ":$p", $placeholders));
+                }
+
+                $current[$key] = $translationString;
+            } else {
+                if (!isset($current[$key]) || !is_array($current[$key])) {
+                    $current[$key] = [];
+                }
+
+                $current = &$current[$key];
+            }
         }
 
-        if (str_contains($key, ',')) {
-            $key = explode("',", $key)[0];
+        return $translations;
+    }
+
+    private static function handleAttributes(array $attributes, string $language): void
+    {
+        foreach ($attributes as $attrKey => $attrDetails) {
+            $filePath = self::getLangPath() . "/$language/{$attrDetails['file']}.php";
+            $translationsArray = file_exists($filePath) ? include $filePath : [];
+            $translationsArray = self::addNestedKeys($translationsArray, $attrDetails['keys']);
+
+            $formattedContent = self::exportArray($translationsArray);
+            file_put_contents($filePath, $formattedContent);
+        }
+    }
+
+    private static function exportArray(array $array): string
+    {
+        $arrayString = self::formatArray($array, 1);
+        return "<?php\n\nreturn [\n" . $arrayString . "\n];\n";
+    }
+
+    private static function formatArray(array $array, int $indentLevel): string
+    {
+        $indent = str_repeat('    ', $indentLevel);
+        $formatted = [];
+
+        foreach ($array as $key => $value) {
+            $formattedKey = var_export($key, true);
+
+            if (is_array($value)) {
+                $nested = self::formatArray($value, $indentLevel + 1);
+                $formatted[] = "$indent$formattedKey => [\n$nested\n$indent],";
+            } else {
+                $formattedValue = var_export($value, true);
+                $formatted[] = "$indent$formattedKey => $formattedValue,";
+            }
         }
 
-        return ['file' => $file, 'key' => $key];
+        return implode("\n", $formatted);
     }
 }
